@@ -14,6 +14,9 @@ crazy. Some notes below:
 - `images` contains the images labeled by those labels.
 - `chars` contains sliced-up numbers used to generate fake captchas
 
+YACS is a bit of code and a paper describing a pretty nice system for solving captchas. This repository
+is based on their code and [a gist from jeff larson](https://gist.github.com/thejefflarson/d8e2a65f37a37d39309058d23f6a71f1).
+
 To run:
 
 You'll need PIL (or Pillow) and Tensorflow
@@ -54,3 +57,8 @@ In format thejefflarson vs yeguixin:
 
 - RMSprop or adam for the optimizer?
 - learning_rate of 0.0001, or 0.01?
+- the original YACS has a piece that uses Pix2pix to make their generated fake captchas look more
+  like real captchas. I don't think that this piece is necessary right now - it's necessary for this
+  model to be effective against real data, but all I'm trying to do right now is to get it to be
+  effective against fake data. Anyway, pix2pix is surprisingly difficult to set up, so it's something
+  I'll do later.
