@@ -1,6 +1,14 @@
+import numpy as np
+import os
+from os import listdir
+from os.path import isfile
+from hashlib import blake2b
+import toml
+from PIL import Image
+
+import tensorflow as tf
 from tensorflow.keras import Input, Model
 from tensorflow.keras.models import load_model
-import toml
 from tensorflow.keras.layers import (
     Conv2D,
     Activation,
@@ -12,27 +20,16 @@ from tensorflow.keras.layers import (
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras.metrics import top_k_categorical_accuracy
-from PIL import Image
 from tensorflow.keras.preprocessing.image import img_to_array
-import numpy as np
 from tensorflow.keras.callbacks import (
     ModelCheckpoint,
     TensorBoard,
     LambdaCallback,
     TerminateOnNaN,
 )
-from os.path import isfile
-from hashlib import blake2b
-import tensorflow as tf
 from keras.applications.inception_v3 import preprocess_input
 from keras.preprocessing import image
-from PIL import Image
-import numpy as np
-import os
-from keras.datasets import cifar10
 from keras.utils import np_utils
-from tensorflow.keras.preprocessing.image import img_to_array
-import toml
 
 
 # tmcw: tweaked because my target is only numeric
@@ -57,8 +54,10 @@ class Opt(object):
 
 def load_image(path):
     img = img_to_array(Image.open(path).convert("L")).reshape((h, w, 1))
-    img /= 127.5
-    img -= 1.0
+    # img /= 127.5
+    # img -= 1
+    img += 40
+    img //= 200.0
     return img
 
 def char2dict(char_set):
@@ -78,6 +77,57 @@ class CaptchaSchemes:
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
         ]
 
+def train_generator():
+    generated = listdir('./generated')
+    while True:
+        for chunk in chunks(generated, 32):
+            if len(chunk) != 32:
+                continue
+            x = []
+            y = []
+
+            for path in chunk:
+                file = open("./generated/%s" % path, 'rb')
+                code = path.split('-')[1].split('.')[0]
+                img = load_image(file)
+                x.append(img)
+                y.append(text2vec(code))
+
+            x = np.array(x)
+            # crashes here. reshape with original argument of 32 doesn't work, probably
+            # because there are only 10 numbers supported rather than 36 numbers + letters
+            # print("chunk len: %d, len: %d, shape: %s" % (len(chunk), len(y), np.array(y).shape))
+            y = np.array(y).reshape((32, -1))
+            if np.any(np.isnan(x)) or np.any(np.isnan(y)):
+                print("OPOO got NAN")
+                continue
+            yield (x, y)
+
+def generator():
+    while True:
+        dataset = list(toml.load('./training.toml').items())
+        for chunk in chunks(dataset, 32):
+            if len(chunk) != 32:
+                continue
+            x = []
+            y = []
+
+            for (key, code) in chunk:
+                file = open("./images/captcha-%s.png" % key.zfill(3), 'rb')
+                img = load_image(file)
+                x.append(img)
+                y.append(text2vec(code))
+
+            x = np.array(x)
+            # crashes here. reshape with original argument of 32 doesn't work, probably
+            # because there are only 10 numbers supported rather than 36 numbers + letters
+            # print("chunk len: %d, len: %d, shape: %s" % (len(chunk), len(y), np.array(y).shape))
+            y = np.array(y).reshape((32, -1))
+            if np.any(np.isnan(x)) or np.any(np.isnan(y)):
+                print("OPOO got NAN")
+                continue
+            yield (x, y)
+
 
 class Generator:
     def __init__(self, opt):
@@ -85,12 +135,7 @@ class Generator:
         self.opt = opt
         self.datagen = image.ImageDataGenerator(
             preprocessing_function=preprocess_input,
-            # rotation_range=15,
-            # width_shift_range=0.2,
-            # height_shift_range=0.2,
-            # shear_range=0.2,
-            # zoom_range=0.2,
-            # horizontal_flip=True
+            shear_range=0.2,
         )
         self.dict = create_dict('ebay')
         # print('Loading train and validation data...')
@@ -148,22 +193,15 @@ class Generator:
     # Synthetic data generator
     def synth_generator(self, phase):
         if phase == 'train':
-            return self.datagen.flow(self.x_train, self.y_train, batch_size=self.opt.batchSize)
+            return self.datagen.flow(self.x_train, self.y_train, batch_size=self.opt.batchSize, save_to_dir='flow-debug')
         elif phase == 'val':
             return self.datagen.flow(self.x_test, self.y_test, batch_size=self.opt.batchSize, shuffle=False)
         else:
             raise ValueError('Please input train or val phase')
 
-generator = Generator(Opt())
-
-# def reshape_generator(gen):
-#     for (x, y) in gen:
-#         # print(y, y.shape)
-#         y = np.array(y).reshape((32, -1))
-#         yield (x, y)
-
-train_generator = generator.synth_generator('train')
-val_generator = generator.synth_generator('val')
+# generator = Generator(Opt())
+# train_generator = generator.synth_generator('train')
+# val_generator = generator.synth_generator('val')
 
 def text2vec(label):
     vecs = []
@@ -177,32 +215,6 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
-# def generator():
-#     while True:
-#         dataset = list(toml.load('./training.toml').items())
-#         for chunk in chunks(dataset, 32):
-#             if len(chunk) != 32:
-#                 continue
-#             x = []
-#             y = []
-# 
-#             for (key, code) in chunk:
-#                 file = open("./images/captcha-%s.png" % key.zfill(3), 'rb')
-#                 img = img_to_array(Image.open(file).convert("L")).reshape((h, w, 1))
-#                 img /= 127.5
-#                 img -= 1.0
-#                 x.append(img)
-#                 y.append(text2vec(code))
-# 
-#             x = np.array(x)
-#             # crashes here. reshape with original argument of 32 doesn't work, probably
-#             # because there are only 10 numbers supported rather than 36 numbers + letters
-#             # print("chunk len: %d, len: %d, shape: %s" % (len(chunk), len(y), np.array(y).shape))
-#             y = np.array(y).reshape((32, -1))
-#             if np.any(np.isnan(x)) or np.any(np.isnan(y)):
-#                 print("OPOO got NAN")
-#                 continue
-#             yield (x, y)
 
 def vec2text(label):
     arr = [l.argmax().tolist() for l in label.reshape((categories, char_size))]
@@ -255,7 +267,7 @@ class CaptchaModel:
         return top_k_categorical_accuracy(y_true, y_pred, k=categories)
 
     def test(self, batch, logs=None):
-        (images, labels) = next(val_generator)
+        (images, labels) = next(generator())
         for i, image in enumerate(images[:5]):
             label = "".join(vec2text(labels[i].reshape((1, -1))))
             predicted = self.model.predict(image.reshape((1, h, w, 1)))
@@ -279,9 +291,9 @@ class CaptchaModel:
         log = LambdaCallback(on_epoch_end=self.test)
         term = TerminateOnNaN()
         self.model.fit_generator(
-            train_generator,
+            train_generator(),
             steps_per_epoch=20,
-            epochs=1000,
+            epochs=100,
             callbacks=[checkpoint, board, log, term],
         )
 
