@@ -39,7 +39,7 @@ def get_img(i):
 i = 0
 
 
-for i in range(0, 20000):
+for i in range(0, 100000):
     canvas = Image.new('RGB', (120,40), (255,255,255))
 
     cap = random_captcha()
