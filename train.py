@@ -2,7 +2,7 @@ import numpy as np
 import os
 from os import listdir
 from os.path import isfile
-# import toml
+import toml
 import random
 from PIL import Image
 
@@ -72,28 +72,28 @@ def train_generator():
               continue
           yield (x, y)
 
-# def generator():
-#     while True:
-#       dataset = list(toml.load('./training.toml').items())
-#       random.shuffle(dataset)
-#       for chunk in chunks(dataset, 32):
-#           if len(chunk) != 32:
-#               continue
-#           x = []
-#           y = []
-# 
-#           for (key, code) in chunk:
-#               file = open("./images/captcha-%s.png" % key.zfill(3), 'rb')
-#               img = load_image(file)
-#               x.append(img)
-#               y.append(text2vec(code))
-# 
-#           x = np.array(x)
-#           y = np.array(y).reshape((32, -1))
-#           if np.any(np.isnan(x)) or np.any(np.isnan(y)):
-#               print("OPOO got NAN")
-#               continue
-#           yield (x, y)
+def generator():
+    while True:
+      dataset = list(toml.load('./training.toml').items())
+      random.shuffle(dataset)
+      for chunk in chunks(dataset, 32):
+          if len(chunk) != 32:
+              continue
+          x = []
+          y = []
+
+          for (key, code) in chunk:
+              file = open("./images/captcha-%s.png" % key.zfill(3), 'rb')
+              img = load_image(file)
+              x.append(img)
+              y.append(text2vec(code))
+
+          x = np.array(x)
+          y = np.array(y).reshape((32, -1))
+          if np.any(np.isnan(x)) or np.any(np.isnan(y)):
+              print("OPOO got NAN")
+              continue
+          yield (x, y)
 
 
 def text2vec(label):
@@ -167,23 +167,23 @@ class CaptchaModel:
         return top_k_categorical_accuracy(y_true, y_pred, k=categories)
 
     def test(self, batch, logs=None):
-        # (images, labels) = next(generator())
+        (images, labels) = next(generator())
         print('')
-        # for i, image in enumerate(images[:5]):
-        #     label = "".join(vec2text(labels[i].reshape((1, -1))))
-        #     predicted = self.model.predict(image.reshape((1, h, w, 1)))
-        #     predicted_label = "".join(vec2text(predicted))
-        #     print(
-        #         # blake2b(image.tobytes()).hexdigest()[:5],
-        #         # predicted[0][:5],
-        #         ''.join(vec2text(predicted)),
-        #         'vs',
-        #         ''.join(vec2text(labels[i].reshape((1, -1)))),
-        #     )
-        #     with self.filewriter.as_default():
-        #         tf.summary.image(
-        #             f"{label} {predicted_label}", image.reshape((1, h, w, 1)), step=0
-        #         )
+        for i, image in enumerate(images[:5]):
+            label = "".join(vec2text(labels[i].reshape((1, -1))))
+            predicted = self.model.predict(image.reshape((1, h, w, 1)))
+            predicted_label = "".join(vec2text(predicted))
+            print(
+                # blake2b(image.tobytes()).hexdigest()[:5],
+                # predicted[0][:5],
+                ''.join(vec2text(predicted)),
+                'vs',
+                ''.join(vec2text(labels[i].reshape((1, -1)))),
+            )
+            with self.filewriter.as_default():
+                tf.summary.image(
+                    f"{label} {predicted_label}", image.reshape((1, h, w, 1)), step=0
+                )
 
     def train(self):
         checkpoint = ModelCheckpoint(
