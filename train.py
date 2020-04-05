@@ -140,8 +140,8 @@ class Generator:
         y_test = np.empty((self.num_test_sample, self.opt.cap_len * self.opt.char_set_len), dtype='uint8')
         for i, (num, label) in enumerate(testing_slice):
             img_name = os.path.join('./images/', 'captcha-%s.png' % num.zfill(3))
-            x_train[i, :, :, :] = load_image(img_name)
-            y_train[i, :] = self.text2vec(label)
+            x_test[i, :, :, :] = load_image(img_name)
+            y_test[i, :] = self.text2vec(label)
 
         return (x_train, y_train), (x_test, y_test)
 
