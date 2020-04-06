@@ -3,7 +3,7 @@ from os import listdir
 from random import randint
 import toml
 
-char_files = listdir('./chars');
+char_files = listdir('./chars')
 
 chars = {
     '0': [],
@@ -22,6 +22,7 @@ for f in char_files:
     num = f[0]
     chars[num].append(Image.open('./chars/%s' % f))
 
+
 def random_captcha():
     return ''.join(map(lambda x: str(x), [
         randint(0, 9),
@@ -30,6 +31,7 @@ def random_captcha():
         randint(0, 9),
         randint(0, 9)
     ]))
+
 
 def get_img(i):
     options = chars[i]
@@ -40,7 +42,7 @@ i = 0
 
 
 for i in range(0, 100000):
-    canvas = Image.new('RGB', (120,40), (255,255,255))
+    canvas = Image.new('RGB', (120, 40), (255, 255, 255))
 
     cap = random_captcha()
     x = 0
@@ -54,7 +56,7 @@ for i in range(0, 100000):
 
 
 # dataset = list(toml.load('./training.toml').items())
-# 
+#
 # for (num, label) in dataset:
 #     im = Image.open("./images/captcha-%s.png" % num.zfill(3)).resize((256, 256))
 #     canvas = Image.new('RGB', (512,256), (255,255,255))

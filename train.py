@@ -47,52 +47,54 @@ def load_image(path):
     # img //= 200.0
     return img
 
+
 def train_generator():
     generated = listdir('./generated')
     random.shuffle(generated)
     while True:
-      for chunk in chunks(generated, 32):
-          if len(chunk) != 32:
-              continue
-          x = []
-          y = []
+        for chunk in chunks(generated, 32):
+            if len(chunk) != 32:
+                continue
+            x = []
+            y = []
 
-          for path in chunk:
-              file = open("./generated/%s" % path, 'rb')
-              code = path.split('-')[1].split('.')[0]
-              img = load_image(file)
-              x.append(img)
-              y.append(text2vec(code))
+            for path in chunk:
+                file = open("./generated/%s" % path, 'rb')
+                code = path.split('-')[1].split('.')[0]
+                img = load_image(file)
+                x.append(img)
+                y.append(text2vec(code))
 
-          x = np.array(x)
-          y = np.array(y).reshape((32, -1))
-          if np.any(np.isnan(x)) or np.any(np.isnan(y)):
-              print("OPOO got NAN")
-              continue
-          yield (x, y)
+            x = np.array(x)
+            y = np.array(y).reshape((32, -1))
+            if np.any(np.isnan(x)) or np.any(np.isnan(y)):
+                print("OPOO got NAN")
+                continue
+            yield (x, y)
+
 
 def generator():
     while True:
-      dataset = list(toml.load('./training.toml').items())
-      random.shuffle(dataset)
-      for chunk in chunks(dataset, 32):
-          if len(chunk) != 32:
-              continue
-          x = []
-          y = []
+        dataset = list(toml.load('./training.toml').items())
+        random.shuffle(dataset)
+        for chunk in chunks(dataset, 32):
+            if len(chunk) != 32:
+                continue
+            x = []
+            y = []
 
-          for (key, code) in chunk:
-              file = open("./images/captcha-%s.png" % key.zfill(3), 'rb')
-              img = load_image(file)
-              x.append(img)
-              y.append(text2vec(code))
+            for (key, code) in chunk:
+                file = open("./images/captcha-%s.png" % key.zfill(3), 'rb')
+                img = load_image(file)
+                x.append(img)
+                y.append(text2vec(code))
 
-          x = np.array(x)
-          y = np.array(y).reshape((32, -1))
-          if np.any(np.isnan(x)) or np.any(np.isnan(y)):
-              print("OPOO got NAN")
-              continue
-          yield (x, y)
+            x = np.array(x)
+            y = np.array(y).reshape((32, -1))
+            if np.any(np.isnan(x)) or np.any(np.isnan(y)):
+                print("OPOO got NAN")
+                continue
+            yield (x, y)
 
 
 def text2vec(label):
@@ -102,6 +104,7 @@ def text2vec(label):
         vector[alphabet.index(char)] = 1
         vecs.append(vector)
     return np.array(vecs)
+
 
 def chunks(lst, n):
     for i in range(0, len(lst), n):
@@ -156,7 +159,7 @@ class CaptchaModel:
         # x = Dense(char_size * categories)(x)
         model = Model(inp, x)
         model.compile(
-            optimizer=RMSprop(learning_rate=0.00001), # , clipvalue=0.5),
+            optimizer=RMSprop(learning_rate=0.00001),  # , clipvalue=0.5),
             loss=["categorical_crossentropy"],
             metrics=[self.accuracy],
         )

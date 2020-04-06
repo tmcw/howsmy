@@ -13,16 +13,19 @@ alphabet = "0123456789"
 char_size = len(alphabet)
 categories = 5
 
+
 def load_image(path):
     img = img_to_array(Image.open(path).convert("L")).reshape((h, w, 1))
     img /= 127.5
     img -= 1.0
     return img
 
+
 def vec2text(label):
     arr = [l.argmax().tolist() for l in label.reshape((categories, char_size))]
     ret = [alphabet[l] for l in arr]
     return ''.join(ret)
+
 
 model = load_model(model_path)
 
