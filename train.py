@@ -43,7 +43,7 @@ w = 100
 
 
 def load_image(path):
-    img = img_to_array(ImageEnhance.Brightness(Image.open(path).crop((0, 0, w, 20))).enhance(1.5).convert("1")).reshape((h, w, 1))
+    img = img_to_array(ImageEnhance.Brightness(Image.open(path).crop((0, 0, w, h))).enhance(1.5).convert("1")).reshape((h, w, 1))
     return img
 
 
@@ -72,28 +72,29 @@ def train_generator():
             yield (x, y)
 
 
-def generator():
-    while True:
-        dataset = list(toml.load('./training.toml').items())
-        random.shuffle(dataset)
-        for chunk in chunks(dataset, 32):
-            if len(chunk) != 32:
-                continue
-            x = []
-            y = []
-
-            for (key, code) in chunk:
-                file = open("./images/captcha-%s.png" % key.zfill(3), 'rb')
-                img = load_image(file)
-                x.append(img)
-                y.append(text2vec(code))
-
-            x = np.array(x)
-            y = np.array(y).reshape((32, -1))
-            if np.any(np.isnan(x)) or np.any(np.isnan(y)):
-                print("OPOO got NAN")
-                continue
-            yield (x, y)
+# testing & training on same dataset until loss rate starts being right
+# def generator():
+#     while True:
+#         dataset = list(toml.load('./training.toml').items())
+#         random.shuffle(dataset)
+#         for chunk in chunks(dataset, 32):
+#             if len(chunk) != 32:
+#                 continue
+#             x = []
+#             y = []
+# 
+#             for (key, code) in chunk:
+#                 file = open("./images/captcha-%s.png" % key.zfill(3), 'rb')
+#                 img = load_image(file)
+#                 x.append(img)
+#                 y.append(text2vec(code))
+# 
+#             x = np.array(x)
+#             y = np.array(y).reshape((32, -1))
+#             if np.any(np.isnan(x)) or np.any(np.isnan(y)):
+#                 print("OPOO got NAN")
+#                 continue
+#             yield (x, y)
 
 
 def text2vec(label):
@@ -133,25 +134,23 @@ class CaptchaModel:
         x = Activation("relu")(x)
         x = MaxPooling2D(pool_size=(2, 2), padding="same")(x)
         x = Dropout(0.5)(x)
-
         x = Conv2D(128, (3, 3), strides=(1, 1), padding="same")(x)
         x = Activation("relu")(x)
         x = MaxPooling2D(pool_size=(2, 2), padding="same")(x)
         x = Dropout(0.5)(x)
 
-        # attempt to remove 'bottom two layers'
         # x = Conv2D(256, (3, 3), strides=(1, 1), padding="same")(x)
         # x = Activation("relu")(x)
         # x = MaxPooling2D(pool_size=(2, 2), padding="same")(x)
         # x = Dropout(0.5)(x)
-
         # x = Conv2D(512, (3, 3), strides=(1, 1), padding="same")(x)
         # x = Activation("relu")(x)
         # x = MaxPooling2D(pool_size=(2, 2), padding="same")(x)
         # x = Dropout(0.5)(x)
 
         x = Flatten()(x)
-        x = Dense(256)(x)
+        x = Dense(128)(x)
+        # x = Dense(1024)(x)
         x = Activation("relu")(x)
         x = Dropout(0.5)(x)
         x = Dense(char_size * categories, activation="softmax")(x)
