@@ -5,7 +5,6 @@ from os.path import isfile
 import toml
 import random
 from PIL import Image
-
 import tensorflow as tf
 from tensorflow.keras import Input, Model
 from tensorflow.keras.models import load_model
@@ -157,7 +156,7 @@ class CaptchaModel:
         # x = Dense(char_size * categories)(x)
         model = Model(inp, x)
         model.compile(
-            optimizer=RMSprop(learning_rate=0.0001, clipvalue=0.5),
+            optimizer=RMSprop(learning_rate=0.00001), # , clipvalue=0.5),
             loss=["categorical_crossentropy"],
             metrics=[self.accuracy],
         )
@@ -192,8 +191,8 @@ class CaptchaModel:
         board = TensorBoard(log_dir="./logs", write_images=True)
         log = LambdaCallback(on_epoch_end=self.test)
         term = TerminateOnNaN()
-        self.model.fit_generator(
-            train_generator(),
+        self.model.fit(
+            x=train_generator(),
             steps_per_epoch=20,
             epochs=1000,
             callbacks=[checkpoint, board, log, term],
