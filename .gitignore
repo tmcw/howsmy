@@ -3,3 +3,7 @@ logs
 checkpoints
 .DS_Store
 generated
+pyvenv.cfg
+bin
+lib
+init
