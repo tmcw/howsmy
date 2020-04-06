@@ -62,3 +62,21 @@ In format thejefflarson vs yeguixin:
   model to be effective against real data, but all I'm trying to do right now is to get it to be
   effective against fake data. Anyway, pix2pix is surprisingly difficult to set up, so it's something
   I'll do later.
+
+---
+
+Other directions
+
+There are plenty of 'captcha recognizers' here on GitHub, and I've tried a few. Running into a familiar
+problem with them: for example,
+
+This one: https://github.com/PatrickLib/captcha_recognize - relies on tensorflow 1.1.x. 1.1.0
+[is listed on pypi](https://pypi.org/project/tensorflow/1.1.0/). But trying to install it:
+
+```
+pip3 install tensorflow==1.1.0
+ERROR: Could not find a version that satisfies the requirement tensorflow==1.1.0 (from versions: 1.13.0rc1, 1.13.0rc2, 1.13.1, 1.13.2, 1.14.0rc0, 1.14.0rc1, 1.14.0, 1.15.0rc0, 1.15.0rc1, 1.15.0rc2, 1.15.0rc3, 1.15.0, 1.15.2, 2.0.0a0, 2.0.0b0, 2.0.0b1, 2.0.0rc0, 2.0.0rc1, 2.0.0rc2, 2.0.0, 2.0.1, 2.1.0rc0, 2.1.0rc1, 2.1.0rc2, 2.1.0, 2.2.0rc0, 2.2.0rc1, 2.2.0rc2)
+ERROR: No matching distribution found for tensorflow==1.1.0
+```
+
+Does not work. Why? I have no idea.
