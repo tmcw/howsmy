@@ -4,7 +4,8 @@ from os import listdir
 from os.path import isfile
 import toml
 import random
-from PIL import Image
+from PIL import Image, ImageEnhance
+from hashlib import blake2b
 import tensorflow as tf
 from tensorflow.keras import Input, Model
 from tensorflow.keras.models import load_model
@@ -37,14 +38,12 @@ alphabet = "0123456789"
 char_size = len(alphabet)
 categories = 5
 model_path = "./checkpoints/model.hdf5"
-h = 40
-w = 120
+h = 20
+w = 100
 
 
 def load_image(path):
-    img = img_to_array(Image.open(path).convert("1")).reshape((h, w, 1))
-    # img += 40
-    # img //= 200.0
+    img = img_to_array(ImageEnhance.Brightness(Image.open('./images/captcha-001.png').crop((0, 0, w, 20))).enhance(1.5).convert("1")).reshape((h, w, 1))
     return img
 
 
@@ -156,10 +155,9 @@ class CaptchaModel:
         x = Activation("relu")(x)
         x = Dropout(0.5)(x)
         x = Dense(char_size * categories, activation="softmax")(x)
-        # x = Dense(char_size * categories)(x)
         model = Model(inp, x)
         model.compile(
-            optimizer=RMSprop(learning_rate=0.00001),  # , clipvalue=0.5),
+            optimizer=RMSprop(learning_rate=0.0001, clipvalue=0.5),
             loss=["categorical_crossentropy"],
             metrics=[self.accuracy],
         )
@@ -169,18 +167,17 @@ class CaptchaModel:
         return top_k_categorical_accuracy(y_true, y_pred, k=categories)
 
     def test(self, batch, logs=None):
-        (images, labels) = next(generator())
+        (images, labels) = next(train_generator())
         print('')
         for i, image in enumerate(images[:5]):
             label = "".join(vec2text(labels[i].reshape((1, -1))))
             predicted = self.model.predict(image.reshape((1, h, w, 1)))
             predicted_label = "".join(vec2text(predicted))
             print(
-                # blake2b(image.tobytes()).hexdigest()[:5],
-                # predicted[0][:5],
-                ''.join(vec2text(predicted)),
-                'vs',
-                ''.join(vec2text(labels[i].reshape((1, -1)))),
+                blake2b(image.tobytes()).hexdigest()[:5],
+                predicted[0][:5],
+                vec2text(predicted),
+                vec2text(labels[i].reshape((1, -1))),
             )
             with self.filewriter.as_default():
                 tf.summary.image(
