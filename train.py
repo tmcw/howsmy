@@ -43,7 +43,7 @@ w = 100
 
 
 def load_image(path):
-    img = img_to_array(ImageEnhance.Brightness(Image.open('./images/captcha-001.png').crop((0, 0, w, 20))).enhance(1.5).convert("1")).reshape((h, w, 1))
+    img = img_to_array(ImageEnhance.Brightness(Image.open(path).crop((0, 0, w, 20))).enhance(1.5).convert("1")).reshape((h, w, 1))
     return img
 
 
