@@ -8,9 +8,9 @@ import pickle
 import cv2
 
 
-model_filename = "models/captcha_model_real_data.hdf5"
+model_filename = "models/captcha_model_latest.hdf5"
 model_labels_filename = "labels.dat"
-test_image_folder = "test_set"
+test_image_folder = "testset_captchas"
 
 
 with open(model_labels_filename, "rb") as f:
@@ -20,7 +20,6 @@ with open(model_labels_filename, "rb") as f:
 model = load_model(model_filename)
 
 captcha_images = list(paths.list_images(test_image_folder))
-# captcha_images = np.random.choice(captcha_images, size=(10,), replace=False)
 
 num_correct = 0
 incorrect = []
@@ -29,6 +28,7 @@ for image_file in captcha_images:
 
     captcha_correct_text = Path(image_file).stem
 
+    # Load image, convert to grayscale, find contours
     image = cv2.imread(image_file)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
