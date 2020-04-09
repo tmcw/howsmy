@@ -1,7 +1,4 @@
+generated_captchas
 __pycache__
 .DS_Store
 venv
-generated_captchas
-images
-extracted_chars_fake
-test_set
