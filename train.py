@@ -12,8 +12,8 @@ import pickle
 import cv2
 
 
-char_images_folder = "extracted_chars_real"
-model_filename = "models/captcha_model_real_data.hdf5"
+char_images_folder = "trainset_chars/labeled"
+model_filename = "models/captcha_model_latest.hdf5"
 model_labels_filename = "labels.dat"
 
 
@@ -23,6 +23,7 @@ labels = []
 for image_file in paths.list_images(char_images_folder):
 
     image = cv2.imread(image_file)
+
     # Convert to grayscale
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -69,6 +70,6 @@ model.add(Dense(500, activation="relu"))
 model.add(Dense(10, activation="softmax"))
 
 model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
-model.fit(X_train, Y_train, validation_data=(X_test, Y_test), batch_size=8, epochs=10, verbose=1)
+model.fit(X_train, Y_train, validation_data=(X_test, Y_test), batch_size=16, epochs=10, verbose=1)
 
 model.save(model_filename)
