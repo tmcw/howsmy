@@ -1,7 +1,3 @@
-print("TURNED OFF")
-# Stops accidental running of the file
-exit()
-
 from pathlib import Path
 import os.path
 import imutils
@@ -10,28 +6,30 @@ import cv2
 import os
 
 
-captcha_image_folder = "images"
-output_folder = "extracted_chars_real"
+captcha_image_folder = "trainset_captchas"
+output_folder = "trainset_chars"
 
 
 # Get a list of all the captcha images we need to process
 captcha_image_files = glob.glob(os.path.join(captcha_image_folder, "*"))
 
 counts = {}
+total_chars = 0
 
-# loop over the image paths
+
 for (i, image_file) in enumerate(captcha_image_files):
     print(f"[INFO] processing image {i + 1}/{len(captcha_image_files)}")
 
-    # Since the filename contains the captcha text, grab the base filename as the text
+    # Grab the base filename as the label
+    # Depends whether you label the captcha images first
     captcha_correct_text = Path(image_file).stem
 
     # Load the image and convert it to grayscale
-    image = cv2.imread(image_file)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Add some extra padding around the image
-    gray = cv2.copyMakeBorder(gray, 2, 2, 2, 2, cv2.BORDER_REPLICATE)
+    try:
+        image = cv2.imread(image_file)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    except:
+        print("Image couldn't be loaded")
 
     # threshold the image (convert it to pure black and white)
     thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
@@ -44,7 +42,7 @@ for (i, image_file) in enumerate(captcha_image_files):
 
     char_image_regions = []
 
-    # Now we can loop through each of the four contours and extract the char
+    # Loop through each of the four contours and extract the char
     # inside of each one
     for contour in contours:
         # Get the rectangle that contains the contour
@@ -71,22 +69,28 @@ for (i, image_file) in enumerate(captcha_image_files):
     for char_bounding_box, char_text in zip(char_image_regions, captcha_correct_text):
         # Grab the coordinates of the char in the image
         x, y, w, h = char_bounding_box
-        # Extract the char from the original image with a 2-pixel margin around the edge
+
+        # Extract the char from the original image
         char_image = gray[y:y + h, x:x + w]
 
         # Get the folder to save the image in
-        save_path = os.path.join(output_folder, char_text)
+        # save_path = os.path.join(output_folder, char_text)
+        save_path = output_folder
 
         # if the output directory does not exist, create it
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        # write the char image to a file
+        # Counts how many of each char, only works for labeled captchas
         count = counts.get(char_text, 1)
+        total_chars += 1
 
-        p = os.path.join(save_path, "{}.png".format(str(count).zfill(6)))
-        print(f"char image: {char_image}")
+        # write the char image to a file
+        p = os.path.join(save_path, "{}.png".format(str(total_chars).zfill(6)))
         cv2.imwrite(p, char_image)
 
         # increment the count for the current key
+        # Only works for labeled captchas
         counts[char_text] = count + 1
+
+print(f"Total chars: {total_chars}")
