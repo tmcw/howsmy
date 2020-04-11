@@ -1,82 +1,80 @@
-# howsmy
-
-Wow! Okay!
-
-This repo is the bones of a solver for the CAPTCHA on [etimspayments](https://wmq.etimspayments.com/pbw/include/sanfrancisco/input.jsp),
-which is the key to unlocking [howsmydrivingny](https://twitter.com/howsmydrivingny) but for
-San Francisco. This is my first adventure in 'Machine Learning' so it's really chaotic and
-crazy. Some notes below:
-
-- `train.py` is the training script, the only relevant Python script. It uses PIL, Tensorflow,
-  Keras, and other tools to try and replicate the gist of [YACS](https://github.com/yeguixin/captcha_solver).
-- `make_char_mashups.py` generates 100,000 fake captchas in the `generated` folder
-- `training.toml` contains 557 trained labels in TOML format, (filename = label).
-- `images` contains the images labeled by those labels.
-- `chars` contains sliced-up numbers used to generate fake captchas
-
-YACS is a bit of code and a paper describing a pretty nice system for solving captchas. This repository
-is based on their code and [a gist from jeff larson](https://gist.github.com/thejefflarson/d8e2a65f37a37d39309058d23f6a71f1).
-
-To run:
-
-You'll need PIL (or Pillow) and Tensorflow
-
-Make generated data:
-
-```
-mkdir generated
-python make_char_mashups.py
-```
-
-Run the model:
-
-```
-python train.py
-```
-
----
+This is a CAPTCHA solver for [etimspayments](https://wmq.etimspayments.com/pbw/include/sanfrancisco/input.jsp).
 
 
-Current status is **not great**: I have been embarrassingly plugging in different
-potential 'fixes' and everything either yields wildly expanding loss (3750857.9531),
-or accuracy pinned at 1, or nans.
 
-Current tweaks implemented:
+### Approach:
 
-1. Images are converted to black & white immediately
-2. Bottom two layers of the model are removed. I _think_ bottom means 'larger, and lower in the code, and later in the flow',
-   but it could also mean the opposite.
-3. Removing `activation=softmax` dramatically changes the model: the loss becomes less
-   absurd, but also the accuracy doesn't increase.
+Solving a captcha with a neural network is a multi-class problem, the network will receive as input a single character extracted from the captcha one at a time and then predicts for the given character what number it is (0-9). 
 
-This being a blend of [Jeff's code](https://gist.github.com/thejefflarson/d8e2a65f37a37d39309058d23f6a71f1) and
-[YACS](https://github.com/yeguixin/captcha_solver), there are a bunch of differences between those two
-codebases and I'm not sure which is better in this case:
+To do this the characters (0-9) need to be extracted from the captcha image. I found some existing code on how to do this from Adam Geitgey [here](https://s3-us-west-2.amazonaws.com/mlif-example-code/solving_captchas_code_examples.zip). I adapted the character extraction code he used to work with the [etimspayments](https://wmq.etimspayments.com/pbw/include/sanfrancisco/input.jsp) captcha images - it  works very well.
 
-In format thejefflarson vs yeguixin:
+A simple convolutional network is all that is needed for this data, two convolutional layers, two max pooling layers, a hidden layer with 500 neurons and a final fully connected layer with ten output neurons for the ten classes. You may want to add more data but I just used 3000 downloaded captchas for training because it was fast and achieved a good accuracy. 
 
-- RMSprop or adam for the optimizer?
-- learning_rate of 0.0001, or 0.01?
-- the original YACS has a piece that uses Pix2pix to make their generated fake captchas look more
-  like real captchas. I don't think that this piece is necessary right now - it's necessary for this
-  model to be effective against real data, but all I'm trying to do right now is to get it to be
-  effective against fake data. Anyway, pix2pix is surprisingly difficult to set up, so it's something
-  I'll do later.
 
----
 
-Other directions
+### Results:
 
-There are plenty of 'captcha recognizers' here on GitHub, and I've tried a few. Running into a familiar
-problem with them: for example,
+The first model trained was using characters extracted from the fake generated captchas. This yielded a result of 87% accuracy on an unseen test set of 423 images, however it was not high enough. The low accuracy is probably due to the distribution of the fake data being substantially different to that of the real captchas from the website. 
 
-This one: https://github.com/PatrickLib/captcha_recognize - relies on tensorflow 1.1.x. 1.1.0
-[is listed on pypi](https://pypi.org/project/tensorflow/1.1.0/). But trying to install it:
+The second model was trained on characters extracted from 500 real captcha images from [etimspayments](https://wmq.etimspayments.com/pbw/include/sanfrancisco/input.jsp). This resulted in a substantially better model that achieved 96% accuracy on the unseen test set of 423 real captcha images. This is, as just mentioned most likely due to the distribution of the training data being much closer to that of the unseen test images. This current model does not use fake generated captchas.
 
-```
-pip3 install tensorflow==1.1.0
-ERROR: Could not find a version that satisfies the requirement tensorflow==1.1.0 (from versions: 1.13.0rc1, 1.13.0rc2, 1.13.1, 1.13.2, 1.14.0rc0, 1.14.0rc1, 1.14.0, 1.15.0rc0, 1.15.0rc1, 1.15.0rc2, 1.15.0rc3, 1.15.0, 1.15.2, 2.0.0a0, 2.0.0b0, 2.0.0b1, 2.0.0rc0, 2.0.0rc1, 2.0.0rc2, 2.0.0, 2.0.1, 2.1.0rc0, 2.1.0rc1, 2.1.0rc2, 2.1.0, 2.2.0rc0, 2.2.0rc1, 2.2.0rc2)
-ERROR: No matching distribution found for tensorflow==1.1.0
-```
+Update (April 9th 2020):
 
-Does not work. Why? I have no idea.
+The third model has achieved 98.3% accuracy on the 423 unseen test images. This model was trained on extracted characters from 3000 downloaded captcha images from [etimspayments](https://wmq.etimspayments.com/pbw/include/sanfrancisco/input.jsp), the final number of characters it was trained on was ~10,000.
+
+
+
+### Improvements:
+
+At the moment 98.3% accuracy on 423 unseen test images is very good. 
+
+Potential improvements to be made:
+
+- Make sure the dataset is balanced with equal numbers of characters from each class.
+- Tweak hyperparameters / network structure.
+
+
+
+### Updates (April 9th 2020):
+
+- Trained the network on a larger dataset of ~10,000 characters from 3000 captcha images.
+- Created folder `/trainset_captchas` that the captcha images from [etimspayments](https://wmq.etimspayments.com/pbw/include/sanfrancisco/input.jsp) download to.
+- Created folder `/trainset_chars` that contains the characters extracted from the downloaded captchas in `/trainset_captchas`.
+- Renamed `/test_set` to `/testset_captchas` to maintain consistent naming scheme.
+- Moved the data used to train the second model to 96% into a folder named `/96_trainset`.
+- Updated `label_chars.py` by removing repeated, inefficient code. 
+- Updated `extract_chars.py` to save all extracted chars to one folder - `/trainset_chars`, to be labeled later.
+- Added `labeling_microsite` from [tmcw](https://github.com/tmcw)/**[howsmy](https://github.com/tmcw/howsmy)** to label captcha images.
+
+
+
+### Usage:
+
+Files:
+
+- To extract characters from captcha images run `extract_chars.py`
+- To generate fake captchas run `generate_captchas.py`
+- To label new unlabeled training data using a separately trained model run `label_chars.py`
+- `labels.dat` contains the data for converting to and from one-hot encodings using sklearn.
+- To install required dependencies run `pip install -r requirements.txt`
+- To test the trained model run `test.py`
+- To train the convolutional network run `train.py`
+
+
+
+Folders:
+
+- `/96_trainset` contains the images and characters used for the 96% accuracy achieving model.
+- `/chars` contains the characters used to generate fake captchas.
+- `/models` contains the trained models.
+- `/scripts` contains the shell script that downloads the captcha images.
+- `/testset_captchas` contains the 423 captcha images used for testing the trained models.
+- `/trainset_captchas` contains the 3000 captcha images that will be part of the training process.
+- `/trainset_chars` contains the labeled characters that will be used to train the model, extracted from the `/trainset_captchas` images.
+
+
+
+References:
+
+- [Adam Geitgey](https://github.com/ageitgey) and his own [Captcha solver](https://s3-us-west-2.amazonaws.com/mlif-example-code/solving_captchas_code_examples.zip)
+- https://stackoverflow.com/questions/59159257/cleaning-image-for-ocr/59166202#59166202

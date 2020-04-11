@@ -1,9 +1,4 @@
+generated_captchas
 __pycache__
-logs
-checkpoints
 .DS_Store
-generated
-pyvenv.cfg
-bin
-lib
-init
+venv

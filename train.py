@@ -1,203 +1,75 @@
+from keras.layers.convolutional import Conv2D, MaxPooling2D, AveragePooling2D
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelBinarizer
+from keras.layers.core import Flatten, Dense
+from keras.models import Sequential
+from helpers import resize_to_fit
+from keras.layers import Dropout
+from imutils import paths
+from pathlib import Path
 import numpy as np
-import os
-from os import listdir
-from os.path import isfile
-import toml
-import random
-from PIL import Image, ImageEnhance
-from hashlib import blake2b
-import tensorflow as tf
-from tensorflow.keras import Input, Model
-from tensorflow.keras.models import load_model
-from tensorflow.keras.layers import (
-    Conv2D,
-    Activation,
-    MaxPooling2D,
-    Dropout,
-    Flatten,
-    Dense,
-)
-from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.optimizers import RMSprop
-from tensorflow.keras.metrics import top_k_categorical_accuracy
-from tensorflow.keras.preprocessing.image import img_to_array
-from tensorflow.keras.callbacks import (
-    ModelCheckpoint,
-    TensorBoard,
-    LambdaCallback,
-    TerminateOnNaN,
-)
-from keras.applications.inception_v3 import preprocess_input
-from keras.preprocessing import image
-from keras.utils import np_utils
-from tensorflow.keras import optimizers
+import pickle
+import cv2
 
 
-# tmcw: tweaked because my target is only numeric
-alphabet = "0123456789"
-char_size = len(alphabet)
-categories = 5
-model_path = "./checkpoints/model.hdf5"
-h = 20
-w = 100
+char_images_folder = "trainset_chars/labeled"
+model_filename = "models/captcha_model_latest.hdf5"
+model_labels_filename = "labels.dat"
 
 
-def load_image(path):
-    img = img_to_array(ImageEnhance.Brightness(Image.open(path).crop((0, 0, w, h))).enhance(1.5).convert("1")).reshape((h, w, 1))
-    return img
+data = []
+labels = []
 
+for image_file in paths.list_images(char_images_folder):
 
-def train_generator():
-    generated = listdir('./generated')
-    random.shuffle(generated)
-    while True:
-        for chunk in chunks(generated, 32):
-            if len(chunk) != 32:
-                continue
-            x = []
-            y = []
+    image = cv2.imread(image_file)
 
-            for path in chunk:
-                file = open("./generated/%s" % path, 'rb')
-                code = path.split('-')[1].split('.')[0]
-                img = load_image(file)
-                x.append(img)
-                y.append(text2vec(code))
+    # Convert to grayscale
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-            x = np.array(x)
-            y = np.array(y).reshape((32, -1))
-            if np.any(np.isnan(x)) or np.any(np.isnan(y)):
-                print("OPOO got NAN")
-                continue
-            yield (x, y)
+    # Resize to 20x20
+    image = resize_to_fit(image, 20, 20)
 
+    # Add a third channel dimension to the image to make Keras happy
+    image = np.expand_dims(image, axis=2)
 
-# testing & training on same dataset until loss rate starts being right
-# def generator():
-#     while True:
-#         dataset = list(toml.load('./training.toml').items())
-#         random.shuffle(dataset)
-#         for chunk in chunks(dataset, 32):
-#             if len(chunk) != 32:
-#                 continue
-#             x = []
-#             y = []
-# 
-#             for (key, code) in chunk:
-#                 file = open("./images/captcha-%s.png" % key.zfill(3), 'rb')
-#                 img = load_image(file)
-#                 x.append(img)
-#                 y.append(text2vec(code))
-# 
-#             x = np.array(x)
-#             y = np.array(y).reshape((32, -1))
-#             if np.any(np.isnan(x)) or np.any(np.isnan(y)):
-#                 print("OPOO got NAN")
-#                 continue
-#             yield (x, y)
+    # The label is the name of the folder storing the number
+    label = str(Path(image_file).parent)[-1]
 
+    data.append(image)
+    labels.append(label)
 
-def text2vec(label):
-    vecs = []
-    for char in label:
-        vector = np.zeros(char_size)
-        vector[alphabet.index(char)] = 1
-        vecs.append(vector)
-    return np.array(vecs)
+# scale the raw pixel intensities to the range [0, 1]
+data = np.array(data, dtype="float") / 255.0
+labels = np.array(labels)
 
+(X_train, X_test, Y_train, Y_test) = train_test_split(data, labels, test_size=0.10, random_state=0)
 
-def chunks(lst, n):
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+# Convert the labels into one-hot encodings
+lb = LabelBinarizer().fit(Y_train)
+Y_train = lb.transform(Y_train)
+Y_test = lb.transform(Y_test)
 
+# Save the mapping from labels to one-hot encodings.
+with open(model_labels_filename, "wb") as f:
+    pickle.dump(lb, f)
 
-def vec2text(label):
-    arr = [l.argmax().tolist() for l in label.reshape((categories, char_size))]
-    ret = [alphabet[l] for l in arr]
-    return ret
+model = Sequential()
 
+model.add(Conv2D(20, (5, 5), padding="same", input_shape=(20, 20, 1), activation="relu"))
+model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
-class CaptchaModel:
-    # ref: https://github.com/yeguixin/captcha_solver/tree/master/src/models
-    def __init__(self):
-        self.filewriter = tf.summary.create_file_writer("./logs/")
-        # never load pretrained model
-        # if isfile(model_path):
-        #     self.model = load_model(model_path)
-        #     return
-        inp = Input(shape=(h, w, 1))
-        x = Conv2D(32, (3, 3), strides=(1, 1), padding="same")(inp)
-        x = Activation("relu")(x)
-        x = MaxPooling2D(pool_size=(2, 2), padding="same")(x)
-        x = Dropout(0.5)(x)
-        x = Conv2D(64, (3, 3), strides=(1, 1), padding="same")(x)
-        x = Activation("relu")(x)
-        x = MaxPooling2D(pool_size=(2, 2), padding="same")(x)
-        x = Dropout(0.5)(x)
-        x = Conv2D(128, (3, 3), strides=(1, 1), padding="same")(x)
-        x = Activation("relu")(x)
-        x = MaxPooling2D(pool_size=(2, 2), padding="same")(x)
-        x = Dropout(0.5)(x)
+model.add(Conv2D(50, (5, 5), padding="same", activation="relu"))
+model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
-        # x = Conv2D(256, (3, 3), strides=(1, 1), padding="same")(x)
-        # x = Activation("relu")(x)
-        # x = MaxPooling2D(pool_size=(2, 2), padding="same")(x)
-        # x = Dropout(0.5)(x)
-        # x = Conv2D(512, (3, 3), strides=(1, 1), padding="same")(x)
-        # x = Activation("relu")(x)
-        # x = MaxPooling2D(pool_size=(2, 2), padding="same")(x)
-        # x = Dropout(0.5)(x)
+model.add(Flatten())
 
-        x = Flatten()(x)
-        x = Dense(128)(x)
-        # x = Dense(1024)(x)
-        x = Activation("relu")(x)
-        x = Dropout(0.5)(x)
-        x = Dense(char_size * categories, activation="softmax")(x)
-        model = Model(inp, x)
-        model.compile(
-            optimizer=RMSprop(learning_rate=0.0001, clipvalue=0.5),
-            loss=["categorical_crossentropy"],
-            metrics=[self.accuracy],
-        )
-        self.model = model
+model.add(Dense(500, activation="relu"))
 
-    def accuracy(self, y_true, y_pred):
-        return top_k_categorical_accuracy(y_true, y_pred, k=categories)
+# Output layer with 10 nodes (one for each class)
+model.add(Dense(10, activation="softmax"))
 
-    def test(self, batch, logs=None):
-        (images, labels) = next(train_generator())
-        print('')
-        for i, image in enumerate(images[:5]):
-            label = "".join(vec2text(labels[i].reshape((1, -1))))
-            predicted = self.model.predict(image.reshape((1, h, w, 1)))
-            predicted_label = "".join(vec2text(predicted))
-            print(
-                blake2b(image.tobytes()).hexdigest()[:5],
-                predicted[0][:5],
-                vec2text(predicted),
-                vec2text(labels[i].reshape((1, -1))),
-            )
-            with self.filewriter.as_default():
-                tf.summary.image(
-                    f"{label} {predicted_label}", image.reshape((1, h, w, 1)), step=0
-                )
+model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
+model.fit(X_train, Y_train, validation_data=(X_test, Y_test), batch_size=16, epochs=10, verbose=1)
 
-    def train(self):
-        checkpoint = ModelCheckpoint(
-            model_path, save_best_only=True, monitor="accuracy", mode="max"
-        )
-        board = TensorBoard(log_dir="./logs", write_images=True)
-        log = LambdaCallback(on_epoch_end=self.test)
-        term = TerminateOnNaN()
-        self.model.fit(
-            x=train_generator(),
-            steps_per_epoch=20,
-            epochs=1000,
-            callbacks=[checkpoint, board, log, term],
-        )
-
-
-if __name__ == "__main__":
-    model = CaptchaModel()
-    model.train()
+model.save(model_filename)
